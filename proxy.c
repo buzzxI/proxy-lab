@@ -21,13 +21,10 @@ int main(int argc, char** argv) {
     int listen_fd = Open_listenfd(argv[1]);
     struct sockaddr_storage client_add;
     socklen_t add_len;
-    char host[MAXBUF];
-    char port[MAXBUF];
 
     while (1) {
         add_len = sizeof(client_add);
         int client_fd = Accept(listen_fd, (SA*)&client_add, &add_len);
-        Getnameinfo((SA*)&client_add, add_len, host, MAXBUF, port, MAXBUF, 0);
         serve_client(client_fd);
     }
     Close(listen_fd);
@@ -59,7 +56,7 @@ void serve_client(int client_fd) {
             char* has_connection_hdr = strstr(client_buff, "Connection:");
             char* has_proxy_connection_hdr = strstr(client_buff, "Proxy-Connection:");
             char* has_host_hdr = strstr(client_buff, "Host:");
-            if (has_connection_hdr == NULL && has_proxy_connection_hdr && has_host_hdr) sprintf(server_buff, "%s%s", (char*)server_buff, (char*)client_buff);
+            if (has_connection_hdr == NULL && has_proxy_connection_hdr == NULL && has_host_hdr == NULL) sprintf(server_buff, "%s%s", (char*)server_buff, (char*)client_buff);
             Rio_readlineb(&read_client, client_buff, MAXBUF);
         }
 
