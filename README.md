@@ -11,4 +11,6 @@ build with:
 $ make all
 ```
 
-this branch implememt a sequential proxy
+this branch implememts a prethreaded proxy
+
+`sbuf.c` implements a safe dequed buffer, thread pool is based on that buffer

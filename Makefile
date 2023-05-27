@@ -11,10 +11,13 @@ LDFLAGS = -lcsapp
 .PHONY: all
 all: proxy
 
+sbuf.o: sbuf.c
+	${CC} ${CFLAGS} -c $^ -o $@
+
 proxy.o: proxy.c 
 	$(CC) $(CFLAGS) -c $^ -o $@
 
-proxy: proxy.o
+proxy: proxy.o sbuf.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 .PHONY: clean
