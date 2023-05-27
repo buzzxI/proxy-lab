@@ -39,9 +39,7 @@ int main(int argc, char** argv) {
     int listen_fd = Open_listenfd(argv[1]);
     struct sockaddr_storage client_add;
     socklen_t add_len;
-    char host[MAXBUF];
-    char port[MAXBUF];
-
+    
 #ifdef LOG_FILE
     // init logger    
     log_fd = Open(LOG_FILE, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
@@ -49,13 +47,15 @@ int main(int argc, char** argv) {
     time(&current_time);
     sprintf(logger, "proxy is ready, current time is: %s\n", ctime(&current_time));
     Write(log_fd, logger, strlen(logger));
+    char host[MAXBUF];
+    char port[MAXBUF];
 #endif   
     
     while (1) {
         add_len = sizeof(client_add);
         int client_fd = Accept(listen_fd, (SA*)&client_add, &add_len);
-        Getnameinfo((SA*)&client_add, add_len, host, MAXBUF, port, MAXBUF, 0);
 #ifdef LOG_FILE
+        Getnameinfo((SA*)&client_add, add_len, host, MAXBUF, port, MAXBUF, 0);
         sprintf(logger, "connect:to:client:%s:port:%s\n", host, port);
         Write(log_fd, logger, strlen(logger));
 #endif
@@ -97,8 +97,6 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
         // parse url into: host, port, uri
         char host[MAXBUF], port[MAXBUF], uri[MAXBUF];
         parse_url(url, host, port, uri);
-        
-        int server_fd = Open_clientfd(host, port);
 
         // consturct HTTP request
         // request line
@@ -113,7 +111,7 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
             char* has_connection_hdr = strstr(client_buff, "Connection:");
             char* has_proxy_connection_hdr = strstr(client_buff, "Proxy-Connection:");
             char* has_host_hdr = strstr(client_buff, "Host:");
-            if (has_connection_hdr == NULL && has_proxy_connection_hdr && has_host_hdr) sprintf(server_buff, "%s%s", (char*)server_buff, (char*)client_buff);
+            if (has_connection_hdr == NULL && has_proxy_connection_hdr == NULL && has_host_hdr == NULL) sprintf(server_buff, "%s%s", (char*)server_buff, (char*)client_buff);
             Rio_readlineb(&read_client, client_buff, MAXBUF);
         }
 
@@ -129,6 +127,7 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
         Write(log_fd, thread_local, request_prologue + request_size); 
 #endif
         
+        int server_fd = Open_clientfd(host, port);
         // write to server
         Rio_writen(server_fd, server_buff, request_size);
 
