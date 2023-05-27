@@ -15,6 +15,7 @@ static const char *proxy_connection_hdr = "Proxy-Connection: close\r\n";
 
 static sbuf_t pool;
 static Map map;
+static sem_t map_mutex;
 
 #ifdef LOG_FILE
 static char logger[MAXBUF];
@@ -39,6 +40,7 @@ int main(int argc, char** argv) {
 
     // init cache(just a map)
     map_init(&map);
+    Sem_init(&map_mutex, 0, 1);
     
     int listen_fd = Open_listenfd(argv[1]);
     struct sockaddr_storage client_add;
@@ -103,7 +105,10 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
         parse_url(url, host, port, uri);
 
         // query buffer
+        P(&map_mutex);
         char* buff = map_get(&map, uri);
+        V(&map_mutex);
+
         if (buff != NULL) {
             Rio_writen(client_fd, buff, strlen(buff));
             return;
@@ -122,7 +127,7 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
             char* has_connection_hdr = strstr(client_buff, "Connection:");
             char* has_proxy_connection_hdr = strstr(client_buff, "Proxy-Connection:");
             char* has_host_hdr = strstr(client_buff, "Host:");
-            if (has_connection_hdr == NULL && has_proxy_connection_hdr && has_host_hdr) sprintf(server_buff, "%s%s", (char*)server_buff, (char*)client_buff);
+            if (has_connection_hdr == NULL && has_proxy_connection_hdr == NULL && has_host_hdr == NULL) sprintf(server_buff, "%s%s", (char*)server_buff, (char*)client_buff);
             Rio_readlineb(&read_client, client_buff, MAXBUF);
         }
 
@@ -154,7 +159,10 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
             real_size += n;
         }
         Rio_writen(client_fd, tmp, real_size);
+
+        P(&map_mutex);
         map_put(&map, uri, tmp);
+        V(&map_mutex);
 
 #ifdef LOG_FILE
         sprintf(thread_local, "thread:%lu:proxy:response\n", tid);
