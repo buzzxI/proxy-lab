@@ -6,11 +6,15 @@ this is csapp proxy lab project(offline)
 
 original `README` has be renamed as `LAB_README`
 
-build with:
 ```shell
+# build with:
 $ make all
 ```
 
-this branch implememts a prethreaded proxy
+this branch implememts a cached proxy
+
+switch to cmake to manage this project
 
 `sbuf.c` implements a safe dequed buffer, thread pool is based on that buffer
+
+`map.c` used array of linked list to implement a simple map, which is used as cache in proxy

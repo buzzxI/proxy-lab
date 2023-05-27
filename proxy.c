@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <csapp.h>
 #include "sbuf.h"
+#include "map.h"
 
 /* Recommended max cache and object sizes */
-#define MAX_CACHE_SIZE 1049000
-#define MAX_OBJECT_SIZE 102400
+
 #define MAX_POOL 16
-#define LOG_FILE "./proxy_log.txt"
+// #define LOG_FILE "./proxy_log.txt"
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
@@ -14,6 +14,7 @@ static const char *connection_hdr = "Connection: close\r\n";
 static const char *proxy_connection_hdr = "Proxy-Connection: close\r\n";
 
 static sbuf_t pool;
+static Map map;
 
 #ifdef LOG_FILE
 static char logger[MAXBUF];
@@ -36,6 +37,9 @@ int main(int argc, char** argv) {
     pthread_t tid;
     for (i = 0; i < MAX_POOL; i++) Pthread_create(&tid, NULL, thread_routine, NULL);
 
+    // init cache(just a map)
+    map_init(&map);
+    
     int listen_fd = Open_listenfd(argv[1]);
     struct sockaddr_storage client_add;
     socklen_t add_len;
@@ -97,9 +101,14 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
         // parse url into: host, port, uri
         char host[MAXBUF], port[MAXBUF], uri[MAXBUF];
         parse_url(url, host, port, uri);
-        
-        int server_fd = Open_clientfd(host, port);
 
+        // query buffer
+        char* buff = map_get(&map, uri);
+        if (buff != NULL) {
+            Rio_writen(client_fd, buff, strlen(buff));
+            return;
+        }
+        
         // consturct HTTP request
         // request line
         sprintf(server_buff, "%s %s HTTP/1.0\r\n", method, uri);
@@ -130,6 +139,7 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
 #endif
         
         // write to server
+        int server_fd = Open_clientfd(host, port);
         Rio_writen(server_fd, server_buff, request_size);
 
         // read HTTP response from server
@@ -137,7 +147,14 @@ void serve_client(int client_fd, void* client_buff, void* server_buff, pthread_t
         rio_readinitb(&read_server, server_fd);
 
         ssize_t n;
-        while ((n = Rio_readnb(&read_server, client_buff, MAXBUF))) Rio_writen(client_fd, client_buff, n);
+        int real_size = 0;
+        char tmp[MAX_CACHE_SIZE];
+        while ((n = Rio_readnb(&read_server, client_buff, MAXBUF))) {
+            memcpy(tmp + real_size, client_buff, n);
+            real_size += n;
+        }
+        Rio_writen(client_fd, tmp, real_size);
+        map_put(&map, uri, tmp);
 
 #ifdef LOG_FILE
         sprintf(thread_local, "thread:%lu:proxy:response\n", tid);

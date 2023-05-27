@@ -4,23 +4,22 @@
 # rule). You instructor will type "make" on your specific Makefile to
 # build your proxy from sources.
 
-CC := gcc
-CFLAGS := -g -Wall
-LDFLAGS = -lcsapp
-
 .PHONY: all
-all: proxy
+all: clean build install run
 
-sbuf.o: sbuf.c
-	${CC} ${CFLAGS} -c $^ -o $@
+.PHONY: build
+build: 
+	cmake -B build
 
-proxy.o: proxy.c 
-	$(CC) $(CFLAGS) -c $^ -o $@
+.PHONY: install
+install:
+	cmake --build ./build
+	cp ./build/proxy ./
 
-proxy: proxy.o sbuf.o
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+.PHONY: run
+run:
+	./driver.sh >> log.txt
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o proxy core *.tar *.zip *.gzip *.bzip *.gz *.txt
-
+	rm -rf proxy ./build log.txt proxy_log.txt
